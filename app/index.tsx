@@ -3,12 +3,19 @@ import { StyleSheet, View, Text, StatusBar } from "react-native";
 import MapView, { Heatmap, Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { FontAwesome } from "@expo/vector-icons";
+import { supabase } from "@/lib/supabase";
 
 interface Location {
   latitude: number;
   longitude: number;
   latitudeDelta: number;
   longitudeDelta: number;
+}
+
+interface RiskyArea {
+  latitude: number;
+  longitude: number;
+  risk_level: number;
 }
 
 const App = () => {
@@ -18,6 +25,33 @@ const App = () => {
   const [heatmapPoints, setHeatmapPoints] = useState([
     { latitude: 20.272833203107567, longitude: 85.7683806167329, weight: 5 },
   ]);
+
+  useEffect(() => {
+    (async () => {
+      const latitude = location?.latitude;
+      const longitude = location?.longitude;
+      if (!latitude || !longitude) return;
+
+      const { data, error } = await supabase.rpc("find_areas_within_distance", {
+        lat_input: latitude,
+        lon_input: longitude,
+        max_distance_km: 5, // Search radius in kilometers
+      });
+
+      if (error) {
+        setErrorMsg("Error fetching areas: " + error.message);
+        return null;
+      }
+
+      const result = data.map((item: RiskyArea) => ({
+        latitude: item.latitude,
+        longitude: item.longitude,
+        weight: item.risk_level,
+      }));
+
+      setHeatmapPoints(result);
+    })();
+  }, [location]);
 
   useEffect(() => {
     (async () => {
