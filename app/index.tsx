@@ -1,118 +1,71 @@
-import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Text, StatusBar } from "react-native";
-import MapView, { Heatmap, Marker } from "react-native-maps";
-import * as Location from "expo-location";
-import { FontAwesome } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
+import { Link, useNavigation } from "expo-router";
+import React from "react";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  ListRenderItem,
+} from "react-native";
+import Icon from "react-native-vector-icons/MaterialIcons";
 
-interface Location {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
-
-interface RiskyArea {
-  latitude: number;
-  longitude: number;
-  risk_level: number;
-}
+type Contact = {
+  id: string;
+  name: string;
+  image?: string | null;
+  initials?: string | null;
+};
 
 const App = () => {
-  const [location, setLocation] = useState<Location | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const navigation = useNavigation();
 
-  const [heatmapPoints, setHeatmapPoints] = useState([
-    { latitude: 20.272833203107567, longitude: 85.7683806167329, weight: 5 },
-  ]);
+  const contacts: Contact[] = [
+    { id: "1", name: "Kevin", image: "https://via.placeholder.com/50" },
+    { id: "2", name: "Amber", image: "https://via.placeholder.com/50" },
+    { id: "3", name: "Rasheed & Josh", image: null, initials: "RJ" },
+    { id: "4", name: "Jacob", image: "https://via.placeholder.com/50" },
+  ];
 
-  useEffect(() => {
-    (async () => {
-      const latitude = location?.latitude;
-      const longitude = location?.longitude;
-      if (!latitude || !longitude) return;
-
-      const { data, error } = await supabase.rpc("find_areas_within_distance", {
-        lat_input: latitude,
-        lon_input: longitude,
-        max_distance_km: 5, // Search radius in kilometers
-      });
-
-      if (error) {
-        setErrorMsg("Error fetching areas: " + error.message);
-        return null;
-      }
-
-      const result = data.map((item: RiskyArea) => ({
-        latitude: item.latitude,
-        longitude: item.longitude,
-        weight: item.risk_level,
-      }));
-
-      setHeatmapPoints(result);
-    })();
-  }, [location]);
-
-  useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setErrorMsg("Permission to access location was denied");
-        return;
-      }
-
-      let userLocation = await Location.getCurrentPositionAsync({});
-      setLocation({
-        latitude: userLocation.coords.latitude,
-        longitude: userLocation.coords.longitude,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-      });
-    })();
-  }, []);
-
-  if (!location) {
-    return (
-      <View style={styles.container}>
-        <Text>{errorMsg ? errorMsg : "Loading..."}</Text>
-      </View>
-    );
-  }
+  const renderContact: ListRenderItem<Contact> = ({ item }) => (
+    <View style={styles.contact}>
+      {item.image ? (
+        <Image source={{ uri: item.image }} style={styles.contactImage} />
+      ) : (
+        <View style={styles.initialsCircle}>
+          <Text style={styles.initials}>{item.initials}</Text>
+        </View>
+      )}
+      <Text style={styles.contactName}>{item.name}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="white"
-        translucent={false}
-      />
-      <View style={styles.header}>
-        <FontAwesome name="arrow-left" size={20} />
-        <Text style={styles.headerText}>Location</Text>
+      <Text style={styles.greeting}>Hi, Jane</Text>
+
+      <View style={{ alignItems: "flex-start" }}>
+        <FlatList
+          data={contacts}
+          horizontal
+          renderItem={renderContact}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.contactsList}
+          showsHorizontalScrollIndicator={false}
+        />
       </View>
-      <MapView
-        style={styles.map}
-        initialRegion={location}
-        showsUserLocation={true}
-      >
-        <Marker
-          coordinate={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-          }}
-          title="You are here"
-        />
-        <Heatmap
-          points={heatmapPoints}
-          opacity={0.7}
-          radius={40}
-          gradient={{
-            colors: ["#FFA500", "#FF4500", "#FF0000"], // Gradient: Orange to Red
-            startPoints: [0.2, 0.5, 1.0], // Adjust transitions
-            colorMapSize: 256, // Gradient resolution
-          }}
-        />
-      </MapView>
+
+      <View style={styles.sosContainer}>
+        <View style={styles.sosButton}>
+          <Text style={styles.sosText}>SOS</Text>
+        </View>
+        <Text style={styles.sosInfo}>Your SOS will be sent to 4 people</Text>
+      </View>
+
+      <Link href="/map" style={styles.launchMapButton}>
+        <Text style={styles.launchMapText}>View nearby risky areas</Text>
+      </Link>
     </View>
   );
 };
@@ -120,24 +73,82 @@ const App = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f9f9f9",
+    padding: 20,
+  },
+  greeting: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginVertical: 10,
+  },
+  contactsList: {
+    paddingVertical: 10,
+    flexGrow: 0,
+  },
+  contact: {
+    alignItems: "center",
+    marginRight: 15,
+  },
+  contactImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  initialsCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#d3d3d3",
     justifyContent: "center",
     alignItems: "center",
   },
-  header: {
-    position: "absolute",
-    top: 30,
-    left: 30,
-    zIndex: 9999,
-    flexDirection: "row",
-    gap: 15,
-    alignItems: "center",
-  },
-  headerText: {
+  initials: {
     fontSize: 18,
-    fontWeight: "semibold",
+    fontWeight: "bold",
+    color: "#fff",
   },
-  map: {
-    ...StyleSheet.absoluteFillObject,
+  contactName: {
+    marginTop: 5,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  sosContainer: {
+    alignItems: "center",
+    marginVertical: "auto",
+  },
+  sosButton: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "red",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  sosText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  sosInfo: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#555",
+  },
+  launchMapButton: {
+    backgroundColor: "black",
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 10,
+  },
+  launchMapText: {
+    color: "#fff",
+    fontSize: 16,
   },
 });
 
